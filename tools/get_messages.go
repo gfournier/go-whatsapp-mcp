@@ -17,7 +17,7 @@ func getMessagesTool() mcp.Tool {
 		),
 		mcp.WithInteger("limit",
 			mcp.Description("Maximum number of messages to return (default 50, max 200)."),
-			mcp.DefaultString("50"),
+			mcp.DefaultNumber(50),
 		),
 	)
 }

@@ -5,13 +5,13 @@ import "sync"
 type MessageStore struct {
 	mu    sync.RWMutex
 	store map[string][]Message
-	cap   int
+	maxSize   int
 }
 
-func NewMessageStore(cap int) *MessageStore {
+func NewMessageStore(maxSize int) *MessageStore {
 	return &MessageStore{
 		store: make(map[string][]Message),
-		cap:   cap,
+		maxSize:   maxSize,
 	}
 }
 
@@ -21,8 +21,8 @@ func (s *MessageStore) Append(jid string, msg Message) {
 
 	msgs := s.store[jid]
 	msgs = append(msgs, msg)
-	if len(msgs) > s.cap {
-		msgs = msgs[len(msgs)-s.cap:]
+	if len(msgs) > s.maxSize {
+		msgs = msgs[len(msgs)-s.maxSize:]
 	}
 	s.store[jid] = msgs
 }

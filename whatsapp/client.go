@@ -26,8 +26,8 @@ type Client struct {
 	once  sync.Once // ensures ready channel is closed only once
 }
 
-func NewClient(container *sqlstore.Container, cfg *config.Config, log waLog.Logger) (*Client, error) {
-	device, err := container.GetFirstDevice(context.Background())
+func NewClient(ctx context.Context, container *sqlstore.Container, cfg *config.Config, log waLog.Logger) (*Client, error) {
+	device, err := container.GetFirstDevice(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get device: %w", err)
 	}
@@ -85,7 +85,7 @@ func (c *Client) connectWithQR(ctx context.Context) error {
 			}
 		}
 	}
-	return nil
+	return fmt.Errorf("QR channel closed without successful pairing")
 }
 
 // WaitReady blocks until the WhatsApp connection is established or the context is cancelled.
@@ -105,23 +105,6 @@ func (c *Client) WaitReady(ctx context.Context, timeout time.Duration) error {
 
 func (c *Client) markReady() {
 	c.once.Do(func() { close(c.ready) })
-}
-
-func (c *Client) reconnectLoop() {
-	backoff := 5 * time.Second
-	for {
-		time.Sleep(backoff)
-		c.log.Infof("attempting reconnect...")
-		if err := c.wa.Connect(); err != nil {
-			c.log.Errorf("reconnect failed: %v", err)
-			if backoff < 5*time.Minute {
-				backoff *= 2
-			}
-		} else {
-			backoff = 5 * time.Second
-			return
-		}
-	}
 }
 
 func (c *Client) Disconnect() {

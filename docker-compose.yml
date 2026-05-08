@@ -11,7 +11,5 @@ services:
       WHATSAPP_ALLOWED_JIDS: ""   # comma-separated group JIDs, empty = all
       WHATSAPP_MAX_MESSAGES: "500"
       LOG_LEVEL: info
-    restart: unless-stopped
-
 volumes:
   whatsapp-data:

@@ -21,8 +21,7 @@ func (h *eventHandler) handle(evt interface{}) {
 		h.client.log.Infof("WhatsApp connected")
 		h.client.markReady()
 	case *events.Disconnected:
-		h.client.log.Warnf("WhatsApp disconnected, reconnecting...")
-		go h.client.reconnectLoop()
+		h.client.log.Warnf("WhatsApp disconnected (auto-reconnect enabled)")
 	}
 }
 

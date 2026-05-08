@@ -48,7 +48,7 @@ func run() error {
 		return fmt.Errorf("open sqlite: %w", err)
 	}
 
-	waClient, err := whatsapp.NewClient(container, cfg, log.Sub("whatsapp"))
+	waClient, err := whatsapp.NewClient(ctx, container, cfg, log.Sub("whatsapp"))
 	if err != nil {
 		return fmt.Errorf("create WhatsApp client: %w", err)
 	}
