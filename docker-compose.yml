@@ -1,0 +1,17 @@
+services:
+  whatsapp-mcp:
+    build: .
+    image: go-whatsapp-mcp:latest
+    stdin_open: true
+    tty: false
+    volumes:
+      - whatsapp-data:/data
+    environment:
+      WHATSAPP_DB_PATH: /data/whatsapp.db
+      WHATSAPP_ALLOWED_JIDS: ""   # comma-separated group JIDs, empty = all
+      WHATSAPP_MAX_MESSAGES: "500"
+      LOG_LEVEL: info
+    restart: unless-stopped
+
+volumes:
+  whatsapp-data:
