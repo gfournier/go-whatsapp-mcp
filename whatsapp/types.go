@@ -29,5 +29,5 @@ type GroupInfo struct {
 	Name             string        `json:"name"`
 	Description      string        `json:"description"`
 	ParticipantCount int           `json:"participant_count"`
-	Participants     []Participant `json:"participants"`
+	Participants     []Participant `json:"participants,omitempty"`
 }

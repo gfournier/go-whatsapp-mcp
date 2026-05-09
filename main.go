@@ -54,6 +54,10 @@ func run() error {
 	}
 	defer waClient.Disconnect()
 
+	if len(cfg.AllowedJIDs) == 0 {
+		fmt.Fprintln(os.Stderr, "WARNING: WHATSAPP_ALLOWED_JIDS is not set — agent has unrestricted access to all chats")
+	}
+
 	fmt.Fprintf(os.Stderr, "Connecting to WhatsApp...\n")
 	if err := waClient.Connect(ctx); err != nil {
 		return fmt.Errorf("connect to WhatsApp: %w", err)

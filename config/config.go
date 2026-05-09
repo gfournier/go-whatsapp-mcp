@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -23,6 +24,10 @@ func Load() (*Config, error) {
 		MaxMessagesPerChat: getEnvInt("WHATSAPP_MAX_MESSAGES", 500),
 		LogLevel:           getEnv("LOG_LEVEL", "info"),
 		AllowedJIDs:        make(map[string]bool),
+	}
+
+	if cfg.MaxMessagesPerChat <= 0 {
+		return nil, fmt.Errorf("WHATSAPP_MAX_MESSAGES must be a positive integer, got %d", cfg.MaxMessagesPerChat)
 	}
 
 	if raw := os.Getenv("WHATSAPP_ALLOWED_JIDS"); raw != "" {

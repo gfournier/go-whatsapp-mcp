@@ -3,27 +3,33 @@ package whatsapp
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/gfournier/go-whatsapp-mcp/config"
+	qrterminal "github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
+	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
 )
 
+// sendLimiter allows 1 message/second with a burst of 5.
+const sendLimitRate = 1
+const sendLimitBurst = 5
+
 type Client struct {
-	wa    *whatsmeow.Client
-	msgs  *MessageStore
-	cfg   *config.Config
-	log   waLog.Logger
-	ready chan struct{}
-	once  sync.Once // ensures ready channel is closed only once
+	wa      *whatsmeow.Client
+	msgs    *MessageStore
+	cfg     *config.Config
+	log     waLog.Logger
+	ready   chan struct{}
+	once    sync.Once // ensures ready channel is closed only once
+	limiter *rate.Limiter
 }
 
 func NewClient(ctx context.Context, container *sqlstore.Container, cfg *config.Config, log waLog.Logger) (*Client, error) {
@@ -33,10 +39,11 @@ func NewClient(ctx context.Context, container *sqlstore.Container, cfg *config.C
 	}
 
 	c := &Client{
-		msgs:  NewMessageStore(cfg.MaxMessagesPerChat),
-		cfg:   cfg,
-		log:   log,
-		ready: make(chan struct{}),
+		msgs:    NewMessageStore(cfg.MaxMessagesPerChat),
+		cfg:     cfg,
+		log:     log,
+		ready:   make(chan struct{}),
+		limiter: rate.NewLimiter(sendLimitRate, sendLimitBurst),
 	}
 
 	c.wa = whatsmeow.NewClient(device, log.Sub("wa"))
@@ -49,7 +56,7 @@ func NewClient(ctx context.Context, container *sqlstore.Container, cfg *config.C
 }
 
 // Connect authenticates and connects to WhatsApp.
-// On first run it prints a QR URL to stderr and waits for the user to scan it.
+// On first run it renders a QR code to stderr and waits for the user to scan it.
 // On subsequent runs it reconnects with the saved session.
 func (c *Client) Connect(ctx context.Context) error {
 	if c.wa.Store.ID == nil {
@@ -71,9 +78,10 @@ func (c *Client) connectWithQR(ctx context.Context) error {
 	for evt := range qrChan {
 		switch evt.Event {
 		case whatsmeow.QRChannelEventCode:
-			encoded := url.QueryEscape(evt.Code)
-			fmt.Fprintf(os.Stderr, "Scan this QR code in WhatsApp (Linked Devices > Link a Device):\n")
-			fmt.Fprintf(os.Stderr, "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=%s\n\n", encoded)
+			fmt.Fprintln(os.Stderr, "Scan this QR code in WhatsApp (Settings → Linked Devices → Link a Device):")
+			// Render locally — never send the pairing code to an external service.
+			qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stderr)
+			fmt.Fprintln(os.Stderr)
 		case "success":
 			c.log.Infof("QR scan successful, session saved")
 			return nil
@@ -160,12 +168,17 @@ func (c *Client) GetMessages(_ context.Context, jid string, limit int) ([]Messag
 }
 
 // SendMessage sends a plain text message to the given JID.
+// Rate-limited to 1 message/second (burst of 5) to protect the linked account.
 func (c *Client) SendMessage(ctx context.Context, jid string, text string) (time.Time, error) {
 	if !c.cfg.IsAllowed(jid) {
 		return time.Time{}, fmt.Errorf("chat %q is not in the allowed list", jid)
 	}
 	if len(text) > 4096 {
 		return time.Time{}, fmt.Errorf("message exceeds 4096 characters")
+	}
+
+	if err := c.limiter.Wait(ctx); err != nil {
+		return time.Time{}, fmt.Errorf("rate limit: %w", err)
 	}
 
 	parsedJID, err := types.ParseJID(jid)
@@ -183,7 +196,9 @@ func (c *Client) SendMessage(ctx context.Context, jid string, text string) (time
 }
 
 // GetGroupInfo returns metadata for a WhatsApp group.
-func (c *Client) GetGroupInfo(ctx context.Context, jid string) (*GroupInfo, error) {
+// When includeParticipants is false, the Participants list is omitted to avoid
+// exposing member phone numbers unnecessarily.
+func (c *Client) GetGroupInfo(ctx context.Context, jid string, includeParticipants bool) (*GroupInfo, error) {
 	if !c.cfg.IsAllowed(jid) {
 		return nil, fmt.Errorf("chat %q is not in the allowed list", jid)
 	}
@@ -198,20 +213,24 @@ func (c *Client) GetGroupInfo(ctx context.Context, jid string) (*GroupInfo, erro
 		return nil, fmt.Errorf("get group info: %w", err)
 	}
 
-	participants := make([]Participant, len(info.Participants))
-	for i, p := range info.Participants {
-		participants[i] = Participant{
-			JID:          p.JID.String(),
-			IsAdmin:      p.IsAdmin,
-			IsSuperAdmin: p.IsSuperAdmin,
-		}
-	}
-
-	return &GroupInfo{
+	result := &GroupInfo{
 		JID:              info.JID.String(),
 		Name:             info.Name,
 		Description:      info.Topic,
 		ParticipantCount: len(info.Participants),
-		Participants:     participants,
-	}, nil
+	}
+
+	if includeParticipants {
+		participants := make([]Participant, len(info.Participants))
+		for i, p := range info.Participants {
+			participants[i] = Participant{
+				JID:          p.JID.String(),
+				IsAdmin:      p.IsAdmin,
+				IsSuperAdmin: p.IsSuperAdmin,
+			}
+		}
+		result.Participants = participants
+	}
+
+	return result, nil
 }
