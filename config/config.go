@@ -30,23 +30,33 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("WHATSAPP_MAX_MESSAGES must be a positive integer, got %d", cfg.MaxMessagesPerChat)
 	}
 
-	if raw := os.Getenv("WHATSAPP_ALLOWED_JIDS"); raw != "" {
-		for _, jid := range strings.Split(raw, ",") {
-			jid = strings.TrimSpace(jid)
-			if jid != "" {
-				cfg.AllowedJIDs[jid] = true
-			}
+	raw := os.Getenv("WHATSAPP_ALLOWED_JIDS")
+	if raw == "" {
+		return nil, fmt.Errorf("WHATSAPP_ALLOWED_JIDS is required: set a comma-separated list of JIDs the agent is allowed to access")
+	}
+	for _, jid := range strings.Split(raw, ",") {
+		jid = strings.TrimSpace(jid)
+		if jid != "" {
+			cfg.AllowedJIDs[jid] = true
 		}
+	}
+	if len(cfg.AllowedJIDs) == 0 {
+		return nil, fmt.Errorf("WHATSAPP_ALLOWED_JIDS is set but contains no valid JIDs")
 	}
 
 	return cfg, nil
 }
 
 func (c *Config) IsAllowed(jid string) bool {
-	if len(c.AllowedJIDs) == 0 {
-		return true
-	}
 	return c.AllowedJIDs[jid]
+}
+
+func (c *Config) AllowedJIDList() []string {
+	jids := make([]string, 0, len(c.AllowedJIDs))
+	for jid := range c.AllowedJIDs {
+		jids = append(jids, jid)
+	}
+	return jids
 }
 
 func getEnv(key, fallback string) string {

@@ -54,10 +54,6 @@ func run() error {
 	}
 	defer waClient.Disconnect()
 
-	if len(cfg.AllowedJIDs) == 0 {
-		fmt.Fprintln(os.Stderr, "WARNING: WHATSAPP_ALLOWED_JIDS is not set — agent has unrestricted access to all chats")
-	}
-
 	fmt.Fprintf(os.Stderr, "Connecting to WhatsApp...\n")
 	if err := waClient.Connect(ctx); err != nil {
 		return fmt.Errorf("connect to WhatsApp: %w", err)
@@ -70,7 +66,7 @@ func run() error {
 	fmt.Fprintf(os.Stderr, "WhatsApp connected. Starting MCP server.\n")
 
 	mcpServer := server.NewMCPServer("whatsapp-mcp", "1.0.0")
-	tools.RegisterAll(mcpServer, waClient)
+	tools.RegisterAll(mcpServer, waClient, cfg)
 
 	if err := server.ServeStdio(mcpServer); err != nil {
 		return fmt.Errorf("MCP server error: %w", err)
