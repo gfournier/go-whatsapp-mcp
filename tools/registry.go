@@ -8,7 +8,6 @@ import (
 
 func RegisterAll(s *server.MCPServer, client *whatsapp.Client, cfg *config.Config) {
 	s.AddTool(listAllowedJIDsTool(), listAllowedJIDsHandler(cfg))
-	s.AddTool(listChatsTool(), listChatsHandler(client))
 	s.AddTool(getMessagesTool(), getMessagesHandler(client))
 	s.AddTool(sendMessageTool(), sendMessageHandler(client))
 	s.AddTool(getChatInfoTool(), getChatInfoHandler(client))
