@@ -1,0 +1,12 @@
+services:
+  discord-mcp:
+    build:
+      context: ..
+      dockerfile: discord-mcp/Dockerfile
+    image: discord-mcp:latest
+    stdin_open: true
+    tty: false
+    environment:
+      DISCORD_BOT_TOKEN: ""         # required: set your Discord bot token
+      DISCORD_ALLOWED_CHANNELS: ""  # required: comma-separated text channel IDs
+      LOG_LEVEL: info
