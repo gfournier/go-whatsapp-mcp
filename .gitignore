@@ -27,6 +27,14 @@ go.work.sum
 # env file
 .env
 
+# WhatsApp session database (contains auth credentials — never commit)
+whatsapp.db
+whatsapp.db-shm
+whatsapp.db-wal
+
+# Built binary
+go-whatsapp-mcp
+
 # Editor/IDE
 # .idea/
 # .vscode/
